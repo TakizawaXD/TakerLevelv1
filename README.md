@@ -110,20 +110,8 @@ Plataformas en la nube como **AWS, Google Cloud Platform o Microsoft Azure** pro
 
 El proyecto se adhiere a una **arquitectura basada en componentes** bien organizada, como lo demuestra el directorio `src`, promoviendo la mantenibilidad y la reutilización. Una estructura lógica típica incluiría:
 
-```
-src/
-├── components/          # Componentes reutilizables de UI (botones, tarjetas, modales)
-├── pages/               # Vistas principales de la aplicación (Dashboard, Missions, etc.)
-├── hooks/               # Custom React Hooks para lógica reutilizable
-├── contexts/            # Contextos de React para gestión de estado global
-├── services/            # Módulos para interactuar con APIs o servicios externos (ej. Supabase)
-├── utils/               # Funciones de utilidad (formato de fechas, validaciones)
-├── assets/              # Archivos estáticos (imágenes, iconos, fuentes)
-├── styles/              # Archivos de estilos globales o específicos de componentes (Tailwind CSS)
-├── types/               # Definiciones de tipos para TypeScript
-└── App.tsx              # Componente principal de la aplicación
-└── main.tsx             # Punto de entrada de la aplicación
-```
+
+![Diagrama](https://github.com/TakizawaXD/TakerLevelv1/blob/main/img/Diagrama.png)
 
 Esta estructura integral permite que "Segador de Sistemas" sea altamente escalable, fácil de navegar y eficiente para los desarrolladores, asegurando una experiencia fluida y atractiva para cada "cazador" de fitness.
 
