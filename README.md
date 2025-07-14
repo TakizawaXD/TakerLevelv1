@@ -1,7 +1,7 @@
 
-## **Bienvenido a Segador de Sistemas: Tu Aventura de Fitness Gamificada**
+## **Bienvenido a Entrenamiento por niveles: Tu Aventura de Fitness Gamificada**
 
-**Segador de Sistemas** es una innovadora aplicación móvil diseñada para transformar tu viaje de fitness en una emocionante aventura gamificada. Olvídate de las aburridas hojas de cálculo de seguimiento; con Segador de Sistemas, cada entrenamiento, cada comida saludable y cada meta de hidratación te acerca a convertirte en un "cazador" de élite en tu propia historia de progreso.
+**Entrenamiento por niveles ** es una innovadora aplicación móvil diseñada para transformar tu viaje de fitness en una emocionante aventura gamificada. Olvídate de las aburridas hojas de cálculo de seguimiento; con Segador de Sistemas, cada entrenamiento, cada comida saludable y cada meta de hidratación te acerca a convertirte en un "cazador" de élite en tu propia historia de progreso.
 
 Imagina combinar la emoción de subir de nivel en un videojuego con el impacto real de mejorar tu salud. Esta aplicación te permite registrar tus ejercicios, monitorear tu nutrición e hidratación, y completar misiones diarias, todo mientras ganas **puntos de experiencia (XP)** y mejoras tus **estadísticas vitales** como Fuerza (STR), Agilidad (AGI), Inteligencia (INT) y Carisma (CHA). Con desafiantes "**raids de jefes**" virtuales y un **asistente de voz** integrado para un seguimiento manos libres, Segador de Sistemas no solo te ayuda a alcanzar tus objetivos, sino que convierte el proceso en una experiencia inmersiva y gratificante. Prepárate para subir de nivel tu vida, un ejercicio a la vez.
 
