@@ -1,8 +1,8 @@
 
 ## Características Principales
 
-### Salpicadero (Dashboard)
-Tu centro de comando principal, el **Salpicadero**, ofrece una visión inmediata de tu progreso:
+### Menu principal
+Tu centro de comando principal, Dashboard, ofrece una visión inmediata de tu progreso:
 * **Estado del Cazador (Hunter Status):** De un vistazo, consulta tu **nivel actual**, la cantidad de **días que has estado activo** en tu viaje y tu **registro** general, que refleja tus esfuerzos constantes.
 * **XP Progress:** Una representación visual clara muestra cómo tus **puntos de experiencia (XP) se acumulan** hacia el siguiente nivel, proporcionando un impulso constante para lograr más.
 * **Estadísticas (Stats):** Monitorea tus atributos principales: **Fuerza (STR)**, **Agilidad (AGI)**, **Inteligencia (INT)** y **Carisma (CHA)**. Estas estadísticas no son solo números; pueden estar vinculadas al progreso dentro de la aplicación o desbloquear logros únicos, reflejando directamente tu crecimiento físico y mental.
