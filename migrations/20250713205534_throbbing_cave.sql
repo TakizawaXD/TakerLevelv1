@@ -1,28 +1,28 @@
 /*
-  # SYSTEM REAPER - Schema Completo
+ # SYSTEM REAPER - Schema Completo
 
-  1. Nuevas Tablas
-    - `user_profiles` - Perfiles completos de cazadores
-    - `daily_missions` - Misiones diarias obligatorias estilo Solo Leveling
-    - `workouts` - Registro detallado de entrenamientos
-    - `exercises` - Base de datos de ejercicios disponibles
-    - `workout_exercises` - Relación entre entrenamientos y ejercicios
-    - `nutrition_logs` - Registro de comidas y nutrición
-    - `hydration_logs` - Registro de consumo de agua
-    - `boss_raids` - Desafíos épicos a largo plazo
-    - `achievements` - Sistema de logros y títulos
-    - `voice_commands` - Historial de comandos de voz
+ 1. Nuevas Tablas
+   - `user_profiles` - Perfiles completos de cazadores
+   - `daily_missions` - Misiones diarias obligatorias estilo Solo Leveling
+   - `workouts` - Registro detallado de entrenamientos
+   - `exercises` - Base de datos de ejercicios disponibles
+   - `workout_exercises` - Relación entre entrenamientos y ejercicios
+   - `nutrition_logs` - Registro de comidas y nutrición
+   - `hydration_logs` - Registro de consumo de agua
+   - `boss_raids` - Desafíos épicos a largo plazo
+   - `achievements` - Sistema de logros y títulos
+   - `voice_commands` - Historial de comandos de voz
 
-  2. Seguridad
-    - RLS habilitado en todas las tablas
-    - Políticas para que usuarios solo accedan a sus datos
+ 2. Seguridad
+   - RLS habilitado en todas las tablas
+   - Políticas para que usuarios solo accedan a sus datos
 
-  3. Funcionalidades Avanzadas
-    - Sistema de XP y niveles automático
-    - Misiones diarias obligatorias con penalizaciones
-    - Contador de ejercicios en tiempo real
-    - Sistema de nutrición e hidratación
-    - Comandos de voz integrados
+ 3. Funcionalidades Avanzadas
+   - Sistema de XP y niveles automático
+   - Misiones diarias obligatorias con penalizaciones
+   - Contador de ejercicios en tiempo real
+   - Sistema de nutrición e hidratación
+   - Comandos de voz integrados
 */
 
 -- Tabla de perfiles de usuario completos
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS daily_missions (
 
 -- Tabla de ejercicios disponibles
 CREATE TABLE IF NOT EXISTS exercises (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id uuid PRIMARY AS DEFAULT gen_random_uuid(),
   name text UNIQUE NOT NULL,
   category text NOT NULL, -- 'strength', 'cardio', 'flexibility', 'core'
   muscle_groups text[] DEFAULT '{}',
@@ -299,6 +299,31 @@ DECLARE
   existing_count integer;
   user_level integer;
   user_fitness text;
+  
+  -- Definir plantillas de misiones por dificultad/nivel
+  mission_templates jsonb := '[
+      -- MISIONES OBLIGATORIAS - Nivel Principiante (Beginner/Nivel 1-4)
+      {"level_min": 1, "fitness": "beginner", "title": "💪 50 Flexiones", "description": "Realiza 50 flexiones sin parar (puedes hacer series)", "exercise_type": "pushups", "target_value": 50, "unit": "reps", "xp_reward": 15, "penalty_xp": -8, "mission_type_template": "daily_required"},
+      {"level_min": 1, "fitness": "beginner", "title": "🔥 50 Abdominales", "description": "Completa 50 abdominales para fortalecer tu core", "exercise_type": "situps", "target_value": 50, "unit": "reps", "xp_reward": 15, "penalty_xp": -8, "mission_type_template": "daily_required"},
+      {"level_min": 1, "fitness": "beginner", "title": "🦵 50 Sentadillas", "description": "Ejecuta 50 sentadillas perfectas", "exercise_type": "squats", "target_value": 50, "unit": "reps", "xp_reward": 15, "penalty_xp": -8, "mission_type_template": "daily_required"},
+      {"level_min": 1, "fitness": "beginner", "title": "🏃 Correr 3km", "description": "Completa una carrera de 3 kilómetros", "exercise_type": "running", "target_value": 3, "unit": "km", "xp_reward": 20, "penalty_xp": -10, "mission_type_template": "daily_required"},
+
+      -- MISIONES OBLIGATORIAS - Nivel Intermedio (Intermediate/Nivel 5-14)
+      {"level_min": 5, "fitness": "intermediate", "title": "💪 100 Flexiones", "description": "Realiza 100 flexiones sin parar (puedes hacer series)", "exercise_type": "pushups", "target_value": 100, "unit": "reps", "xp_reward": 20, "penalty_xp": -10, "mission_type_template": "daily_required"},
+      {"level_min": 5, "fitness": "intermediate", "title": "🔥 100 Abdominales", "description": "Completa 100 abdominales para fortalecer tu core", "exercise_type": "situps", "target_value": 100, "unit": "reps", "xp_reward": 20, "penalty_xp": -10, "mission_type_template": "daily_required"},
+      {"level_min": 5, "fitness": "intermediate", "title": "🦵 100 Sentadillas", "description": "Ejecuta 100 sentadillas perfectas", "exercise_type": "squats", "target_value": 100, "unit": "reps", "xp_reward": 20, "penalty_xp": -10, "mission_type_template": "daily_required"},
+      {"level_min": 5, "fitness": "intermediate", "title": "🏃 Correr 5km", "description": "Completa una carrera de 5 kilómetros", "exercise_type": "running", "target_value": 5, "unit": "km", "xp_reward": 25, "penalty_xp": -12, "mission_type_template": "daily_required"},
+      
+      -- MISIONES OBLIGATORIAS - Nivel Avanzado (Advanced/Nivel 15+)
+      {"level_min": 15, "fitness": "advanced", "title": "💪 150 Flexiones", "description": "Realiza 150 flexiones sin parar (puedes hacer series)", "exercise_type": "pushups", "target_value": 150, "unit": "reps", "xp_reward": 25, "penalty_xp": -12, "mission_type_template": "daily_required"},
+      {"level_min": 15, "fitness": "advanced", "title": "🔥 150 Abdominales", "description": "Completa 150 abdominales para fortalecer tu core", "exercise_type": "situps", "target_value": 150, "unit": "reps", "xp_reward": 25, "penalty_xp": -12, "mission_type_template": "daily_required"},
+      {"level_min": 15, "fitness": "advanced", "title": "🦵 150 Sentadillas", "description": "Ejecuta 150 sentadillas perfectas", "exercise_type": "squats", "target_value": 150, "unit": "reps", "xp_reward": 25, "penalty_xp": -12, "mission_type_template": "daily_required"},
+      {"level_min": 15, "fitness": "advanced", "title": "🏃 Correr 10km", "description": "Completa una carrera de 10 kilómetros", "exercise_type": "running", "target_value": 10, "unit": "km", "xp_reward": 30, "penalty_xp": -15, "mission_type_template": "daily_required"}
+  ]'::jsonb;
+
+  selected_missions_for_level jsonb;
+  mission jsonb;
+
 BEGIN
   -- Verificar si ya existen misiones para esta fecha
   SELECT COUNT(*) INTO existing_count
@@ -311,12 +336,49 @@ BEGIN
   
   -- Si no hay misiones, crear las 4 obligatorias + extras
   IF existing_count = 0 THEN
-    -- MISIONES OBLIGATORIAS ESTILO SOLO LEVELING
-    INSERT INTO daily_missions (user_id, date, mission_type, title, description, exercise_type, target_value, unit, xp_reward, penalty_xp) VALUES
-    (user_uuid, mission_date, 'daily_required', '💪 100 Flexiones', 'Realiza 100 flexiones sin parar (puedes hacer series)', 'pushups', 100, 'reps', 20, -10),
-    (user_uuid, mission_date, 'daily_required', '🔥 100 Abdominales', 'Completa 100 abdominales para fortalecer tu core', 'situps', 100, 'reps', 20, -10),
-    (user_uuid, mission_date, 'daily_required', '🦵 100 Sentadillas', 'Ejecuta 100 sentadillas perfectas', 'squats', 100, 'reps', 20, -10),
-    (user_uuid, mission_date, 'daily_required', '🏃 Correr 10km', 'Completa una carrera de 10 kilómetros', 'running', 10, 'km', 30, -15);
+    -- Seleccionar misiones obligatorias según el nivel/fitness del usuario
+    -- Prioriza por fitness_level, luego por nivel. Si no encuentra específico, toma un valor por defecto.
+    SELECT jsonb_agg(m) INTO selected_missions_for_level
+    FROM jsonb_array_elements(mission_templates) m
+    WHERE (
+        (m->>'fitness')::text = user_fitness AND (m->>'level_min')::integer <= user_level
+    )
+    AND (m->>'mission_type_template')::text = 'daily_required'; -- Asegurar que solo seleccionamos las obligatorias
+
+    -- Si no se encontraron misiones específicas para el nivel/fitness (ej. 'expert' no tiene plantillas aquí), usar las de 'advanced' o 'intermediate' como fallback
+    IF selected_missions_for_level IS NULL OR jsonb_array_length(selected_missions_for_level) = 0 THEN
+        -- Fallback a 'advanced' si el usuario es 'expert' o nivel muy alto sin plantillas específicas
+        SELECT jsonb_agg(m) INTO selected_missions_for_level
+        FROM jsonb_array_elements(mission_templates) m
+        WHERE (m->>'fitness')::text = 'advanced'
+        AND (m->>'mission_type_template')::text = 'daily_required';
+
+        -- Fallback a 'intermediate' si aún no hay (para niveles muy bajos o errores de configuración)
+        IF selected_missions_for_level IS NULL OR jsonb_array_length(selected_missions_for_level) = 0 THEN
+            SELECT jsonb_agg(m) INTO selected_missions_for_level
+            FROM jsonb_array_elements(mission_templates) m
+            WHERE (m->>'fitness')::text = 'intermediate'
+            AND (m->>'mission_type_template')::text = 'daily_required';
+        END IF;
+    END IF;
+
+    -- Insertar las misiones obligatorias seleccionadas (deberían ser 4)
+    FOR mission IN SELECT * FROM jsonb_array_elements(selected_missions_for_level)
+    LOOP
+      INSERT INTO daily_missions (user_id, date, mission_type, title, description, exercise_type, target_value, unit, xp_reward, penalty_xp)
+      VALUES (
+        user_uuid,
+        mission_date,
+        (mission->>'mission_type_template')::text, -- Usar el tipo de la plantilla
+        mission->>'title',
+        mission->>'description',
+        mission->>'exercise_type',
+        (mission->>'target_value')::integer,
+        mission->>'unit',
+        (mission->>'xp_reward')::integer,
+        (mission->>'penalty_xp')::integer
+      );
+    END LOOP;
     
     -- MISIONES ADICIONALES SEGÚN NIVEL
     IF user_level >= 5 THEN

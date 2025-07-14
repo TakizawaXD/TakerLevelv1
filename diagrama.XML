@@ -1,0 +1,40 @@
+<mxfile host="app.diagrams.net" modified="2025-07-14T16:26:25.000Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/XXX.0.0.0 Safari/537.36" etag="YOUR_ETAG_HERE" version="24.4.16" type="device">
+  <diagram id="diagram-id-1" name="Page-1">
+    <mxGraphModel dx="1000" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageEnabled="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="USUARIO" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="350" y="50" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="FRONTEND WEB&lt;br&gt;(React, TypeScript,&lt;br&gt;Vite)&lt;br&gt;&lt;br&gt;- Componentes UI&lt;br&gt;- Lógica de Vista&lt;br&gt;- Hooks Personal." style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="200" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="BACKEND&lt;br&gt;(API Server)&lt;br&gt;&lt;br&gt;- Autenticación&lt;br&gt;- Gestión de Datos&lt;br&gt;- Lógica de Negocio&lt;br&gt;- Control de Acceso" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="400" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="BASE DE&lt;br&gt;DATOS&lt;br&gt;&lt;br&gt;- Usuarios&lt;br&gt;- Ejercicios&lt;br&gt;- Nutrición&lt;br&gt;- Misiones&lt;br&gt;- Estadísticas" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="600" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="(Navegador Web)" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="2" target="3">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="400" y="100" as="sourcePoint" />
+            <mxPoint x="400" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="7" value="(Peticiones API / Datos)" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="3" target="4">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="400" y="320" as="sourcePoint" />
+            <mxPoint x="400" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="8" value="(Lectura/Escritura)" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="4" target="5">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="400" y="520" as="sourcePoint" />
+            <mxPoint x="400" y="600" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

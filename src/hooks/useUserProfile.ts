@@ -1,42 +1,109 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from './useAuth'
-import { Database } from '../lib/supabase'
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './useAuth';
+import { Database } from '../lib/supabase';
 
-export type UserProfile = Database['public']['Tables']['user_profiles']['Row']
+export type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
 
 export function useUserProfile() {
-  const { user } = useAuth()
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("useUserProfile: useEffect activado. Estado del usuario:", user);
     if (user) {
-      fetchProfile()
+      fetchProfile();
     } else {
-      setProfile(null)
-      setLoading(false)
+      console.log("useUserProfile: No hay usuario autenticado. Reiniciando perfil.");
+      setProfile(null);
+      setLoading(false);
     }
-  }, [user])
+  }, [user]);
+
+  const createNewUserProfile = async (userId: string, userEmail: string) => {
+    console.log("useUserProfile: Intentando crear nuevo perfil para el usuario:", userId);
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .insert({
+        id: userId, // Usar 'id' en lugar de 'auth_user_id' para la clave primaria
+        email: userEmail,
+        username: userEmail.split('@')[0],
+        level: 1,
+        total_xp: 0,
+        current_xp: 0,
+        xp_to_next_level: 100,
+        str: 1,
+        agi: 1,
+        int: 1,
+        vit: 1,
+        cha: 1,
+        available_points: 0,
+        current_streak: 0,
+        max_streak: 0,
+        total_workouts: 0,
+        total_missions_completed: 0,
+        title: 'Cazador Novato',
+        rank: 'E'
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('useUserProfile: Error al crear el nuevo perfil:', error);
+      throw error;
+    }
+    console.log('useUserProfile: Nuevo perfil creado con éxito:', data);
+    return data;
+  };
 
   const fetchProfile = async () => {
-    if (!user) return
+    if (!user) {
+      console.log("useUserProfile: fetchProfile llamado sin usuario. Retornando.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const TIMEOUT_DURATION = 15000;
 
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*', { head: false }) // Fuerza formato JSON
-        .eq('auth_user_id', user.id)
-        .maybeSingle() // Evita error si no hay resultados
+      console.log("useUserProfile: Intentando obtener perfil para auth_user_id:", user.id); // Este log puede permanecer, pero la consulta cambia
 
-      if (error) throw error
-      setProfile(data)
-    } catch (error) {
-      console.error('Error fetching profile:', error)
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout al obtener el perfil del usuario')), TIMEOUT_DURATION)
+      );
+
+      const { data, error } = await Promise.race([
+        supabase
+          .from('user_profiles')
+          .select('*', { head: false })
+          .eq('id', user.id) // <--- ¡CORRECCIÓN CLAVE AQUÍ! Cambiado de 'auth_user_id' a 'id'
+          .maybeSingle(),
+        timeoutPromise,
+      ]);
+
+      if (error) {
+        console.error('useUserProfile: Error al obtener el perfil:', error);
+        throw error;
+      }
+
+      if (data) {
+        console.log('useUserProfile: Perfil obtenido con éxito:', data);
+        setProfile(data);
+      } else {
+        console.warn('useUserProfile: No se encontró un perfil para el usuario:', user.id, '. Procediendo a crear uno...');
+        const newProfile = await createNewUserProfile(user.id, user.email || 'no-email@example.com');
+        setProfile(newProfile);
+      }
+    } catch (error: any) {
+      console.error('useUserProfile: Error inesperado al obtener o crear el perfil o timeout:', error.message || error);
+      setProfile(null);
     } finally {
-      setLoading(false)
+      console.log('useUserProfile: Carga del perfil finalizada. Estableciendo loading a false.');
+      setLoading(false);
     }
-  }
+  };
 
   const addXP = async (xp: number, reason: string = 'workout') => {
     if (!profile) return
@@ -183,5 +250,5 @@ export function useUserProfile() {
     allocateStatPoint,
     updateStreak,
     refreshProfile: fetchProfile,
-  }
+  };
 }

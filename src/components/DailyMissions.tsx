@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Target, Clock, Zap, AlertTriangle, CheckCircle, Plus } from 'lucide-react'
 import { SystemWindow } from './ui/SystemWindow'
 import { StatBar } from './ui/StatBar'
@@ -7,160 +7,174 @@ import { GlowButton } from './ui/GlowButton'
 import { supabase } from '../lib/supabase'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { Database } from '../lib/supabase'
+import { toast } from 'react-hot-toast' // Assuming you have a toast notification library
 
+// Define the type for DailyMission from your Supabase database
 type DailyMission = Database['public']['Tables']['daily_missions']['Row']
 
+/**
+ * Renders the daily missions interface for the user.
+ * It fetches, displays, and allows users to update progress on their daily missions,
+ * distinguishing between required and bonus missions.
+ */
 export function DailyMissions() {
-  const { profile } = useUserProfile()
+  const { profile, refetchProfile } = useUserProfile() // Assuming useUserProfile provides refetchProfile
   const [missions, setMissions] = useState<DailyMission[]>([])
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [selectedMission, setSelectedMission] = useState<DailyMission | null>(null)
   const [progressInput, setProgressInput] = useState('')
 
-  useEffect(() => {
-    if (profile) {
-      fetchDailyMissions()
-    }
-  }, [profile])
-
-  const fetchDailyMissions = async () => {
+  // Fetch daily missions when the profile is available or changes
+  const fetchDailyMissions = useCallback(async () => {
     if (!profile) return
 
+    setIsLoading(true)
     try {
       const today = new Date().toISOString().split('T')[0]
-      
-      // Generar misiones si no existen
-      await supabase.rpc('generate_daily_missions', { 
+
+      // Generate missions if they don't exist for today
+      // Consider adding a check in the RPC to avoid unnecessary generation calls
+      const { error: generateError } = await supabase.rpc('generate_daily_missions', {
         user_uuid: profile.id,
-        mission_date: today
+        mission_date: today,
       })
 
-      // Obtener misiones del día
-      const { data, error } = await supabase
+      if (generateError) throw generateError
+
+      // Retrieve today's missions
+      const { data, error: fetchError } = await supabase
         .from('daily_missions')
         .select('*')
         .eq('user_id', profile.id)
         .eq('date', today)
         .order('mission_type', { ascending: true })
 
-      if (error) throw error
+      if (fetchError) throw fetchError
       setMissions(data || [])
     } catch (error) {
-      console.error('Error fetching daily missions:', error)
+      console.error('Error fetching or generating daily missions:', error)
+      toast.error('Failed to load missions. Please try again.')
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
-  }
+  }, [profile])
 
-  const updateMissionProgress = async (missionId: string, additionalProgress: number) => {
-    const mission = missions.find(m => m.id === missionId)
-    if (!mission) return
+  useEffect(() => {
+    fetchDailyMissions()
+  }, [fetchDailyMissions])
 
-    const newProgress = Math.min(mission.current_progress + additionalProgress, mission.target_value)
-    const completed = newProgress >= mission.target_value
+  // Update mission progress and user XP
+  const updateMissionProgress = useCallback(
+    async (missionId: string, additionalProgress: number) => {
+      const missionToUpdate = missions.find((m) => m.id === missionId)
+      if (!missionToUpdate || !profile) return
 
-    try {
-      const { error } = await supabase
-        .from('daily_missions')
-        .update({
-          current_progress: newProgress,
-          completed,
-          completed_at: completed ? new Date().toISOString() : null
-        })
-        .eq('id', missionId)
+      const newProgress = Math.min(
+        missionToUpdate.current_progress + additionalProgress,
+        missionToUpdate.target_value
+      )
+      const completed = newProgress >= missionToUpdate.target_value
 
-      if (error) throw error
+      try {
+        const { error } = await supabase
+          .from('daily_missions')
+          .update({
+            current_progress: newProgress,
+            completed,
+            completed_at: completed ? new Date().toISOString() : null,
+          })
+          .eq('id', missionId)
 
-      // Actualizar estado local
-      setMissions(prev => prev.map(m => 
-        m.id === missionId 
-          ? { ...m, current_progress: newProgress, completed, completed_at: completed ? new Date().toISOString() : null }
-          : m
-      ))
+        if (error) throw error
 
-      if (completed && profile) {
-        // Agregar XP por completar misión
-        const newTotalXp = profile.total_xp + mission.xp_reward
-        let newCurrentXp = profile.current_xp + mission.xp_reward
-        let newLevel = profile.level
-        let newAvailablePoints = profile.available_points
-        let newXpToNext = profile.xp_to_next_level
+        // Optimistically update local state
+        setMissions((prev) =>
+          prev.map((m) =>
+            m.id === missionId
+              ? {
+                  ...m,
+                  current_progress: newProgress,
+                  completed,
+                  completed_at: completed ? new Date().toISOString() : null,
+                }
+              : m
+          )
+        )
 
-        // Level up logic
-        while (newCurrentXp >= newXpToNext) {
-          newCurrentXp -= newXpToNext
-          newLevel++
-          newAvailablePoints++
-          newXpToNext = newLevel * 100
+        if (completed) {
+          // If mission completed, update user profile (XP, level, etc.)
+          await refetchProfile() // Refetch profile to get the most updated XP/level
+          toast.success(`${missionToUpdate.title} completed! +${missionToUpdate.xp_reward} XP!`)
+        } else {
+          toast.success(`Progress updated for ${missionToUpdate.title}!`)
         }
 
-        await supabase
-          .from('user_profiles')
-          .update({
-            total_xp: newTotalXp,
-            current_xp: newCurrentXp,
-            level: newLevel,
-            available_points: newAvailablePoints,
-            xp_to_next_level: newXpToNext,
-            total_missions_completed: profile.total_missions_completed + 1
-          })
-          .eq('id', profile.id)
-
-        // Mostrar notificación de misión completada
-        showMissionCompleteNotification(mission)
+        setSelectedMission(null)
+        setProgressInput('')
+      } catch (error) {
+        console.error('Error updating mission progress or user profile:', error)
+        toast.error('Failed to update mission. Please try again.')
+        // Revert local state if update fails (optional, but good for UX)
+        setMissions((prev) =>
+          prev.map((m) => (m.id === missionId ? missionToUpdate : m))
+        )
       }
+    },
+    [missions, profile, refetchProfile]
+  )
 
-      setSelectedMission(null)
-      setProgressInput('')
-    } catch (error) {
-      console.error('Error updating mission progress:', error)
+  // Memoized mission categorization and counts for efficiency
+  const { requiredMissions, bonusMissions, completedRequired, allRequiredCompleted } = useMemo(() => {
+    const req = missions.filter((m) => m.mission_type === 'daily_required')
+    const bonus = missions.filter((m) => m.mission_type !== 'daily_required')
+    const completedReqCount = req.filter((m) => m.completed).length
+    const allReqComp = completedReqCount === req.length && req.length > 0
+
+    return {
+      requiredMissions: req,
+      bonusMissions: bonus,
+      completedRequired: completedReqCount,
+      allRequiredCompleted: allReqComp,
     }
-  }
+  }, [missions])
 
-  const showMissionCompleteNotification = (mission: DailyMission) => {
-    const notification = document.createElement('div')
-    notification.className = 'fixed top-4 right-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white p-4 rounded-lg shadow-lg z-50 animate-bounce'
-    notification.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="text-2xl">✅</span>
-        <div>
-          <div class="font-bold">¡MISIÓN COMPLETADA!</div>
-          <div class="text-sm">${mission.title} - +${mission.xp_reward} XP</div>
-        </div>
-      </div>
-    `
-    document.body.appendChild(notification)
-    setTimeout(() => notification.remove(), 4000)
-  }
-
-  const getMissionIcon = (exerciseType: string | null) => {
+  // Helper function to get mission icon
+  const getMissionIcon = useCallback((exerciseType: string | null) => {
     switch (exerciseType) {
-      case 'pushups': return '💪'
-      case 'situps': return '🔥'
-      case 'squats': return '🦵'
-      case 'running': return '🏃'
-      case 'water': return '💧'
-      case 'nutrition': return '🥗'
-      case 'workout': return '⚡'
-      default: return '🎯'
+      case 'pushups':
+        return '💪'
+      case 'situps':
+        return '🔥'
+      case 'squats':
+        return '🦵'
+      case 'running':
+        return '🏃'
+      case 'water':
+        return '💧'
+      case 'nutrition':
+        return '🥗'
+      case 'workout':
+        return '⚡'
+      default:
+        return '🎯'
     }
-  }
+  }, [])
 
-  const getMissionTypeColor = (missionType: string) => {
+  // Helper function to get mission card border and background color
+  const getMissionTypeColor = useCallback((missionType: string) => {
     switch (missionType) {
-      case 'daily_required': return 'border-red-500/50 bg-red-900/20'
-      case 'bonus': return 'border-blue-500/50 bg-blue-900/20'
-      case 'special': return 'border-purple-500/50 bg-purple-900/20'
-      default: return 'border-slate-500/50 bg-slate-900/20'
+      case 'daily_required':
+        return 'border-red-500/50 bg-red-900/20'
+      case 'bonus':
+        return 'border-blue-500/50 bg-blue-900/20'
+      case 'special':
+        return 'border-purple-500/50 bg-purple-900/20'
+      default:
+        return 'border-slate-500/50 bg-slate-900/20'
     }
-  }
+  }, [])
 
-  const requiredMissions = missions.filter(m => m.mission_type === 'daily_required')
-  const bonusMissions = missions.filter(m => m.mission_type !== 'daily_required')
-  const completedRequired = requiredMissions.filter(m => m.completed).length
-  const allRequiredCompleted = completedRequired === requiredMissions.length && requiredMissions.length > 0
-
-  if (loading) {
+  if (isLoading) {
     return (
       <SystemWindow title="🔔 MISIONES DIARIAS">
         <div className="text-center py-8">
@@ -186,35 +200,43 @@ export function DailyMissions() {
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-400" />
-              <span className="text-green-300">{completedRequired}/{requiredMissions.length} Completadas</span>
+              <span className="text-green-300">
+                {completedRequired}/{requiredMissions.length} Completadas
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-orange-400" />
-              <span className="text-orange-300">Tiempo restante: {new Date().toLocaleTimeString()}</span>
+              {/* This time display only shows current time, not time remaining for the day. */}
+              {/* For accurate time remaining, you'd need to calculate it based on midnight. */}
+              <span className="text-orange-300">Tiempo actual: {new Date().toLocaleTimeString()}</span>
             </div>
           </div>
         </div>
 
-        {/* Progreso general */}
+        {/* Progreso general de misiones obligatorias */}
         {requiredMissions.length > 0 && (
           <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
             <StatBar
               label="Progreso de Misiones Obligatorias"
               current={completedRequired}
               max={requiredMissions.length}
-              color={allRequiredCompleted ? "green" : "red"}
+              color={allRequiredCompleted ? 'green' : 'red'}
             />
             {allRequiredCompleted && (
-              <div className="mt-3 text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-3 text-center"
+              >
                 <span className="text-green-400 font-bold text-lg">
                   🎉 ¡TODAS LAS MISIONES OBLIGATORIAS COMPLETADAS! 🎉
                 </span>
-              </div>
+              </motion.div>
             )}
           </div>
         )}
 
-        {/* Misiones Obligatorias */}
+        {/* Misiones Obligatorias List */}
         {requiredMissions.length > 0 && (
           <div>
             <h4 className="text-red-300 font-bold text-lg mb-4 flex items-center gap-2">
@@ -222,60 +244,62 @@ export function DailyMissions() {
               MISIONES OBLIGATORIAS
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {requiredMissions.map((mission) => (
-                <motion.div
-                  key={mission.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`rounded-lg p-4 border-2 ${getMissionTypeColor(mission.mission_type)} ${
-                    mission.completed ? 'opacity-75' : ''
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{getMissionIcon(mission.exercise_type)}</span>
-                      <div>
-                        <h5 className="text-white font-bold">{mission.title}</h5>
-                        <p className="text-slate-300 text-sm">{mission.description}</p>
+              <AnimatePresence>
+                {requiredMissions.map((mission) => (
+                  <motion.div
+                    key={mission.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -20 }} // Animation for when mission is completed and removed/filtered
+                    layout // Enable smooth layout transitions
+                    className={`rounded-lg p-4 border-2 ${getMissionTypeColor(mission.mission_type)} ${
+                      mission.completed ? 'opacity-75 grayscale' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{getMissionIcon(mission.exercise_type)}</span>
+                        <div>
+                          <h5 className="text-white font-bold">{mission.title}</h5>
+                          <p className="text-slate-300 text-sm">{mission.description}</p>
+                        </div>
                       </div>
+                      {mission.completed && <CheckCircle className="w-6 h-6 text-green-400" />}
                     </div>
-                    {mission.completed && (
-                      <CheckCircle className="w-6 h-6 text-green-400" />
-                    )}
-                  </div>
 
-                  <StatBar
-                    label="Progreso"
-                    current={mission.current_progress}
-                    max={mission.target_value}
-                    color={mission.completed ? "green" : "red"}
-                  />
+                    <StatBar
+                      label="Progreso"
+                      current={mission.current_progress}
+                      max={mission.target_value}
+                      color={mission.completed ? 'green' : 'red'}
+                    />
 
-                  <div className="flex justify-between items-center mt-3">
-                    <div className="text-sm">
-                      <span className="text-green-400 font-bold">+{mission.xp_reward} XP</span>
-                      {mission.penalty_xp < 0 && (
-                        <span className="text-red-400 ml-2">({mission.penalty_xp} XP si fallas)</span>
+                    <div className="flex justify-between items-center mt-3">
+                      <div className="text-sm">
+                        <span className="text-green-400 font-bold">+{mission.xp_reward} XP</span>
+                        {mission.penalty_xp < 0 && (
+                          <span className="text-red-400 ml-2">({mission.penalty_xp} XP si fallas)</span>
+                        )}
+                      </div>
+                      {!mission.completed && (
+                        <GlowButton
+                          onClick={() => setSelectedMission(mission)}
+                          variant="primary"
+                          className="text-xs px-3 py-1"
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Agregar
+                        </GlowButton>
                       )}
                     </div>
-                    {!mission.completed && (
-                      <GlowButton
-                        onClick={() => setSelectedMission(mission)}
-                        variant="primary"
-                        className="text-xs px-3 py-1"
-                      >
-                        <Plus className="w-3 h-3 mr-1" />
-                        Agregar
-                      </GlowButton>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           </div>
         )}
 
-        {/* Misiones Bonus */}
+        {/* Misiones Bonus List */}
         {bonusMissions.length > 0 && (
           <div>
             <h4 className="text-blue-300 font-bold text-lg mb-4 flex items-center gap-2">
@@ -283,109 +307,125 @@ export function DailyMissions() {
               MISIONES BONUS
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {bonusMissions.map((mission) => (
-                <motion.div
-                  key={mission.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`rounded-lg p-4 border ${getMissionTypeColor(mission.mission_type)} ${
-                    mission.completed ? 'opacity-75' : ''
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{getMissionIcon(mission.exercise_type)}</span>
-                      <div>
-                        <h5 className="text-white font-bold">{mission.title}</h5>
-                        <p className="text-slate-300 text-sm">{mission.description}</p>
+              <AnimatePresence>
+                {bonusMissions.map((mission) => (
+                  <motion.div
+                    key={mission.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    layout
+                    className={`rounded-lg p-4 border ${getMissionTypeColor(mission.mission_type)} ${
+                      mission.completed ? 'opacity-75 grayscale' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{getMissionIcon(mission.exercise_type)}</span>
+                        <div>
+                          <h5 className="text-white font-bold">{mission.title}</h5>
+                          <p className="text-slate-300 text-sm">{mission.description}</p>
+                        </div>
                       </div>
+                      {mission.completed && <CheckCircle className="w-6 h-6 text-green-400" />}
                     </div>
-                    {mission.completed && (
-                      <CheckCircle className="w-6 h-6 text-green-400" />
-                    )}
-                  </div>
 
-                  <StatBar
-                    label="Progreso"
-                    current={mission.current_progress}
-                    max={mission.target_value}
-                    color={mission.completed ? "green" : "blue"}
-                  />
+                    <StatBar
+                      label="Progreso"
+                      current={mission.current_progress}
+                      max={mission.target_value}
+                      color={mission.completed ? 'green' : 'blue'}
+                    />
 
-                  <div className="flex justify-between items-center mt-3">
-                    <span className="text-blue-400 font-bold text-sm">+{mission.xp_reward} XP</span>
-                    {!mission.completed && (
-                      <GlowButton
-                        onClick={() => setSelectedMission(mission)}
-                        variant="secondary"
-                        className="text-xs px-3 py-1"
-                      >
-                        <Plus className="w-3 h-3 mr-1" />
-                        Agregar
-                      </GlowButton>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
+                    <div className="flex justify-between items-center mt-3">
+                      <span className="text-blue-400 font-bold text-sm">+{mission.xp_reward} XP</span>
+                      {!mission.completed && (
+                        <GlowButton
+                          onClick={() => setSelectedMission(mission)}
+                          variant="secondary"
+                          className="text-xs px-3 py-1"
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Agregar
+                        </GlowButton>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           </div>
         )}
 
         {/* Modal para agregar progreso */}
-        {selectedMission && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <AnimatePresence>
+          {selectedMission && (
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="bg-slate-900 border border-blue-500/30 rounded-lg p-6 max-w-md w-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
             >
-              <h3 className="text-white font-bold text-lg mb-4">
-                {getMissionIcon(selectedMission.exercise_type)} {selectedMission.title}
-              </h3>
-              <p className="text-slate-300 text-sm mb-4">{selectedMission.description}</p>
-              
-              <div className="mb-4">
-                <label className="block text-slate-300 font-medium mb-2">
-                  Agregar progreso ({selectedMission.unit})
-                </label>
-                <input
-                  type="number"
-                  value={progressInput}
-                  onChange={(e) => setProgressInput(e.target.value)}
-                  className="w-full p-3 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  placeholder={`Ej: ${selectedMission.unit === 'reps' ? '10' : selectedMission.unit === 'km' ? '1.5' : '500'}`}
-                  min="0"
-                  step={selectedMission.unit === 'km' ? '0.1' : '1'}
-                />
-              </div>
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-slate-900 border border-blue-500/30 rounded-lg p-6 max-w-md w-full"
+              >
+                <h3 className="text-white font-bold text-lg mb-4">
+                  {getMissionIcon(selectedMission.exercise_type)} {selectedMission.title}
+                </h3>
+                <p className="text-slate-300 text-sm mb-4">{selectedMission.description}</p>
 
-              <div className="flex gap-3">
-                <GlowButton
-                  onClick={() => {
-                    setSelectedMission(null)
-                    setProgressInput('')
-                  }}
-                  variant="secondary"
-                  className="flex-1"
-                >
-                  Cancelar
-                </GlowButton>
-                <GlowButton
-                  onClick={() => {
-                    const progress = parseFloat(progressInput)
-                    if (progress > 0) {
-                      updateMissionProgress(selectedMission.id, progress)
-                    }
-                  }}
-                  disabled={!progressInput || parseFloat(progressInput) <= 0}
-                  className="flex-1"
-                >
-                  Agregar
-                </GlowButton>
-              </div>
+                <div className="mb-4">
+                  <label htmlFor="progress-input" className="block text-slate-300 font-medium mb-2">
+                    Agregar progreso ({selectedMission.unit})
+                  </label>
+                  <input
+                    id="progress-input"
+                    type="number"
+                    value={progressInput}
+                    onChange={(e) => setProgressInput(e.target.value)}
+                    className="w-full p-3 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                    placeholder={`Ej: ${
+                      selectedMission.unit === 'reps' ? '10' : selectedMission.unit === 'km' ? '1.5' : '500'
+                    }`}
+                    min="0"
+                    step={selectedMission.unit === 'km' ? '0.1' : '1'}
+                    autoFocus // Automatically focus the input when modal opens
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <GlowButton
+                    onClick={() => {
+                      setSelectedMission(null)
+                      setProgressInput('')
+                    }}
+                    variant="secondary"
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </GlowButton>
+                  <GlowButton
+                    onClick={() => {
+                      const progress = parseFloat(progressInput)
+                      if (!isNaN(progress) && progress > 0) {
+                        updateMissionProgress(selectedMission.id, progress)
+                      } else {
+                        toast.error('Please enter a valid positive number for progress.')
+                      }
+                    }}
+                    disabled={!progressInput || parseFloat(progressInput) <= 0 || isNaN(parseFloat(progressInput))}
+                    className="flex-1"
+                  >
+                    Agregar
+                  </GlowButton>
+                </div>
+              </motion.div>
             </motion.div>
-          </div>
-        )}
+          )}
+        </AnimatePresence>
       </div>
     </SystemWindow>
   )
