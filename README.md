@@ -80,7 +80,7 @@ Plataformas en la nube como **AWS, Google Cloud Platform o Microsoft Azure** pro
 
 ## Estructura del Proyecto
 
-![Texto alternativo para la imagen](img/diagrama.png)
+![Texto alternativo para la imagen](https://github.com/TakizawaXD/TakerLevelv1/blob/main/img/Diagrama.png)
 
 El proyecto se adhiere a una **arquitectura basada en componentes** bien organizada, como lo demuestra el directorio `src`, promoviendo la mantenibilidad y la reutilización. Una estructura lógica típica incluiría:
 
